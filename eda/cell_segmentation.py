@@ -4,10 +4,12 @@ import time
 import os
 import sys
 import cv2
+import shutil
 
 IMAGE_EXTENSIONS = ['.jpg', '.bmp', '.png']
 PATH = 'eda/dataset'
 THRES_HOLD = 64
+
 
 def get_bounding_boxes(masks):
     bounding_boxes = []
@@ -87,6 +89,47 @@ def main():
         # save results as png
         # io.save_to_png(img, masks, flows, filename)
 
+def split_dataset(root_dir, target_dir, val_ratio=0.15, test_ratio=0.15):
+    # Creating Split Folders
+    os.makedirs(target_dir + '/train/', exist_ok=True)
+    os.makedirs(target_dir + '/val/', exist_ok=True)
+    os.makedirs(target_dir + '/test/', exist_ok=True)
+
+    # Folder to copy images from
+    src = os.path.join(root_dir)
+
+    # Spliting the Files in the Given ratio
+    all_filenames = os.listdir(src)
+    np.random.shuffle(all_filenames)
+    train_FileNames, val_FileNames, test_FileNames = np.split(np.array(all_filenames), [int(len(
+        all_filenames) * (1 - (val_ratio + test_ratio))), int(len(all_filenames) * (1 - test_ratio))])
+
+    train_FileNames = [src + '/' +
+                       name for name in train_FileNames.tolist()]
+    val_FileNames = [src + '/' + name for name in val_FileNames.tolist()]
+    test_FileNames = [src + '/' + name for name in test_FileNames.tolist()]
+
+    # Printing the Split Details
+    print('Total images: ', len(all_filenames))
+    print('Training: ', len(train_FileNames))
+    print('Validation: ', len(val_FileNames))
+    print('Testing: ', len(test_FileNames))
+
+    # Copy-pasting images
+    for name in train_FileNames:
+        os.makedirs(target_dir + '/train/', exist_ok=True)
+        shutil.copy(name, f'{target_dir}/train')
+
+    for name in val_FileNames:
+        os.makedirs(target_dir + '/val/', exist_ok=True)
+        shutil.copy(name, f'{target_dir}/val')
+
+    for name in test_FileNames:
+        os.makedirs(target_dir + '/test/', exist_ok=True)
+        shutil.copy(name, f'{target_dir}/test')
+
 
 if __name__ == '__main__':
-    main()
+    # main()
+    split_dataset(root_dir='eda/smear_test/converted',
+                  target_dir='src/dataset/target')

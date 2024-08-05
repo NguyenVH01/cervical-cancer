@@ -1,3 +1,6 @@
 eda/dataset
 dataset.zip
 outputs
+dataset
+.DS_Store
+.vscode/settings.json

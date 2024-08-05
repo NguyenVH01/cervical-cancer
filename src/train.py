@@ -8,7 +8,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import hydra  # for configurations
 from omegaconf.omegaconf import OmegaConf  # config
-from MedMamba import VSSM as medmamba
+from models.mamba.MedMamba import VSSM as medmamba
 
 @hydra.main(config_path="./configs", config_name="configs", version_base="1.2")
 def main(cfg):
