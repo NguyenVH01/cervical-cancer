@@ -3,10 +3,12 @@ import pandas as pd
 from PIL import Image
 
 CSV_PATH = 'eda/Data_clean_v1.csv'
-IMAGE_PATH = 'eda/dataset'
+IMAGE_PATH = 'eda/smear_test'
 IMAGE_COL = 'TÊN FILE'
 IMAGE_PATH_COL = 'ĐƯỜNG DẪN FILE'
 IMAGE_EXTENSIONS = ['.jpg', '.bmp', '.png']
+DATASET_PATH = 'src/dataset'
+
 
 def read_data_csv(path):
     """Đọc dữ liệu từ file CSV."""
@@ -36,7 +38,7 @@ def rename_images(image_path_files, image_list, image_col=IMAGE_COL):
 
 def convert_images_to_png():
     """Chuyển đổi các tệp hình ảnh từ các định dạng khác sang PNG."""
-    for file_name in os.listdir(IMAGE_PATH):
+    for ids, file_name in enumerate(os.listdir(IMAGE_PATH)):
         # Lấy đường dẫn đầy đủ của tệp hình ảnh
         file_path = os.path.join(IMAGE_PATH, file_name)
 
@@ -44,14 +46,19 @@ def convert_images_to_png():
         if not os.path.isfile(file_path):
             continue
 
-        # Mở tệp hình ảnh
-        with Image.open(file_path) as img:
-            # Chuyển đổi tệp hình ảnh sang PNG
-            output_file_name = os.path.splitext(file_name)[0] + '.png'
-            output_file_path = os.path.join(
-                IMAGE_PATH + '/converted', output_file_name)
-            img.save(output_file_path, 'PNG')
-            print(f"Converted {file_name} to {output_file_name}")
+        if os.path.splitext(file_path)[1].lower() in IMAGE_EXTENSIONS:
+            # Mở tệp hình ảnh
+            with Image.open(file_path) as img:
+                os.makedirs('eda/smear_test/converted', exist_ok=True)
+                # Chuyển đổi tệp hình ảnh sang PNG
+                output_file_name = str(ids + 1) + '.png'
+                output_file_path = os.path.join(
+                    IMAGE_PATH + '/converted', output_file_name)
+                img.save(output_file_path, 'PNG')
+                print(f"Converted {file_name} to {output_file_name}")
+
+# def split_dataset(is_target = False):
+
 
 def main():
     image_list = read_image_info(IMAGE_PATH)
@@ -69,5 +76,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
     convert_images_to_png()
