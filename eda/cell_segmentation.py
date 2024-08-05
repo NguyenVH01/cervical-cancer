@@ -7,12 +7,11 @@ import cv2
 
 IMAGE_EXTENSIONS = ['.jpg', '.bmp', '.png']
 PATH = 'eda/dataset'
-THRES_HOLD = 32
+THRES_HOLD = 64
 
 def get_bounding_boxes(masks):
     bounding_boxes = []
     unique_masks = np.unique(masks)
-    height, width = masks.shape
 
     for mask_value in unique_masks:
         if mask_value == 0:
@@ -28,13 +27,11 @@ def get_bounding_boxes(masks):
         for contour in contours:
             # Tìm bounding box từ contour
             x, y, w, h = cv2.boundingRect(contour)
-            # Xử lý vùng biên của ảnh
-            x_start = max(x, 0)
-            y_start = max(y, 0)
-            x_end = min(x + w, THRES_HOLD)
-            y_end = min(y + h, THRES_HOLD)
-
-            bounding_boxes.append((x_start, y_start, x_end, y_end))
+            if w < THRES_HOLD:
+                w = THRES_HOLD
+            if h < THRES_HOLD:
+                h = THRES_HOLD
+            bounding_boxes.append((x, y, x + w, y + h))
 
     return bounding_boxes
 
@@ -68,7 +65,7 @@ def main():
         print(f'Cropping cell on image: {filename}')
 
         masks, flows, styles, diams = model.eval(
-            img, normalize=True, diameter=50, channels=channels)
+            img, normalize=True, flow_threshold=0.3, diameter=None, channels=channels)
 
         name = filename.split('.')[0]
         bounding_boxes = get_bounding_boxes(masks)
