@@ -4,3 +4,4 @@ outputs
 dataset
 .DS_Store
 .vscode/settings.json
+__pycache__

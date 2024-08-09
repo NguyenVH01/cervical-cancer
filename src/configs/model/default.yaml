@@ -1,11 +1,11 @@
 model_name: CNN #MedMamba
-ckpt_path: save_models/
-history_path: evaluation/
-train_data_source_path: dataset/source/train/
-val_data_source_path: dataset/source/val/
-test_data_source_path: dataset/source/test/
-train_data_target_path: dataset/target/train/
-val_data_target_path: dataset/target/val/
-test_data_target_path: dataset/target/test/
+ckpt_path: src/save_models
+history_path: src/evaluation
+train_data_source_path: src/dataset/source/train
+val_data_source_path: src/dataset/source/val
+test_data_source_path: src/dataset/source/test
+train_data_target_path: src/dataset/target/train
+val_data_target_path: src/dataset/target/val
+test_data_target_path: src/dataset/target/test
 image_size: 64
 classes: 5

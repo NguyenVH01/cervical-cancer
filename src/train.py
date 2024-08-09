@@ -8,7 +8,8 @@ import torch.optim as optim
 from tqdm import tqdm
 import hydra  # for configurations
 from omegaconf.omegaconf import OmegaConf  # config
-from models.mamba.MedMamba import VSSM as medmamba
+from models.cnn.conv_backbone import ModelInitializer
+# from models.mamba.MedMamba import VSSM as medmamba
 
 @hydra.main(config_path="./configs", config_name="configs", version_base="1.2")
 def main(cfg):
@@ -36,7 +37,7 @@ def main(cfg):
     }
 
     train_dataset = datasets.ImageFolder(
-        root=cfg.model.train_data_path, transform=data_transform["train"]
+        root=cfg.model.train_data_source_path, transform=data_transform["train"]
     )
     train_num = len(train_dataset)
 
@@ -57,8 +58,8 @@ def main(cfg):
         train_dataset, batch_size=batch_size, shuffle=True, num_workers=nw
     )
 
-    validate_dataset = datasets.ImageFolder(
-        root=cfg.model.val_data_path, transform=data_transform["val"]
+    validate_dataset = datasets.DatasetFolder(
+        root=cfg.model.val_data_target_path, transform=data_transform["val"]
     )
     val_num = len(validate_dataset)
     validate_loader = torch.utils.data.DataLoader(
@@ -70,7 +71,12 @@ def main(cfg):
         )
     )
 
-    net = medmamba(num_classes=cfg.model.classes)
+    # net = medmamba(num_classes=cfg.model.classes)
+    # net.to(device)
+
+    model = ModelInitializer(model_name="resnet152",
+                             num_classes=5, resume_from=None)
+    net = model.initialize()
     net.to(device)
     loss_function = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=0.0001)

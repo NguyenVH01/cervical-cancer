@@ -5,10 +5,11 @@ import os
 import sys
 import cv2
 import shutil
+import pandas as pd
 
 IMAGE_EXTENSIONS = ['.jpg', '.bmp', '.png']
 PATH = 'eda/dataset'
-THRES_HOLD = 64
+THRES_HOLD = 128
 
 
 def get_bounding_boxes(masks):
@@ -38,13 +39,13 @@ def get_bounding_boxes(masks):
     return bounding_boxes
 
 def load_dataset(path):
-    return [file for file in os.listdir(path)]
+    return [file for file in os.listdir(path) if file != '.DS_Store']
 
 def main():
     # RUN CELLPOSE
     # DEFINE CELLPOSE MODEL
     # model_type='cyto' or model_type='nuclei'
-    model = models.Cellpose(gpu=False, model_type='cyto')
+    model = models.Cellpose(gpu=False, model_type='nuclei')
 
     # define CHANNELS to run segementation on
     # grayscale=0, R=1, G=2, B=3
@@ -62,7 +63,7 @@ def main():
     files = load_dataset(PATH)
 
     # or in a loop
-    for filename in files:
+    for filename in files[:2]:
         img = io.imread(f'{PATH}/{filename}')
         print(f'Cropping cell on image: {filename}')
 
@@ -130,6 +131,15 @@ def split_dataset(root_dir, target_dir, val_ratio=0.15, test_ratio=0.15):
 
 
 if __name__ == '__main__':
-    # main()
-    split_dataset(root_dir='eda/smear_test/converted',
-                  target_dir='src/dataset/target')
+    lst_path = sorted(load_dataset(
+        PATH), key=lambda x: int(x.split('.')[0]))
+    print(lst_path)
+    # lst_path = load_dataset(PATH)
+    # for item in lst_path:
+    #     try:
+    #         number = int(item.split('.')[0])
+    #         print(f'number : {number}')
+    #     except:
+    #         print(f'error on item: {item}')
+    # split_dataset(root_dir='eda/smear_test/converted',
+    #   target_dir='src/dataset/target')

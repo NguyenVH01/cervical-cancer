@@ -12,7 +12,6 @@ class ModelInitializer:
         self.use_pretrained = use_pretrained
 
         self.model_ft = None
-        self.input_size = 0
 
     def initialize(self):
         if self.model_name == "resnet18":
@@ -29,7 +28,7 @@ class ModelInitializer:
         if self.resume_from is not None:
             self._load_weights()
 
-        return self.model_ft, self.input_size
+        return self.model_ft
 
     def _initialize_resnet18(self):
         self.model_ft = models.resnet18(pretrained=self.use_pretrained)
@@ -38,7 +37,6 @@ class ModelInitializer:
             nn.Dropout(p=0.3),
             nn.Linear(num_ftrs, self.num_classes)
         )
-        self.input_size = IMAGE_SIZE
 
     def _initialize_resnet50(self):
         self.model_ft = models.resnet50(pretrained=self.use_pretrained)
@@ -47,19 +45,16 @@ class ModelInitializer:
             nn.Dropout(p=0.3),
             nn.Linear(num_ftrs, self.num_classes)
         )
-        self.input_size = IMAGE_SIZE
 
     def _initialize_resnet152(self):
         self.model_ft = models.resnet152(pretrained=self.use_pretrained)
         num_ftrs = self.model_ft.fc.in_features
         self.model_ft.fc = nn.Linear(num_ftrs, self.num_classes)
-        self.input_size = IMAGE_SIZE
 
     def _initialize_vgg16(self):
         self.model_ft = models.vgg16(pretrained=self.use_pretrained)
         num_ftrs = self.model_ft.classifier[6].in_features
         self.model_ft.classifier[6] = nn.Linear(num_ftrs, self.num_classes)
-        self.input_size = IMAGE_SIZE
 
     def _load_weights(self):
         print(f"Loading weights from {self.resume_from}")
@@ -68,5 +63,6 @@ class ModelInitializer:
 
 # Sử dụng lớp ModelInitializer
 model_initializer = ModelInitializer(
-    model_name="resnet18", num_classes=10, resume_from=None)
-model, input_size = model_initializer.initialize()
+    model_name="resnet152", num_classes=5, resume_from=None)
+model = model_initializer.initialize()
+print(model)
