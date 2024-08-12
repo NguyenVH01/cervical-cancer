@@ -6,6 +6,7 @@ import sys
 import cv2
 import shutil
 import pandas as pd
+from tqdm import tqdm
 
 IMAGE_EXTENSIONS = ['.jpg', '.bmp', '.png']
 PATH = 'eda/dataset'
@@ -38,8 +39,11 @@ def get_bounding_boxes(masks):
 
     return bounding_boxes
 
+
 def load_dataset(path):
-    return [file for file in os.listdir(path) if file != '.DS_Store']
+    lst_path = [file for file in os.listdir(path) if file != '.DS_Store']
+    lst_path = sorted(lst_path, key=lambda x: int(x.split('.')[0]))
+    return lst_path
 
 def main():
     # RUN CELLPOSE
@@ -128,6 +132,47 @@ def split_dataset(root_dir, target_dir, val_ratio=0.15, test_ratio=0.15):
     for name in test_FileNames:
         os.makedirs(target_dir + '/test/', exist_ok=True)
         shutil.copy(name, f'{target_dir}/test')
+
+def analysis_cell_distribution(lst_path):
+    # RUN CELLPOSE
+    # DEFINE CELLPOSE MODEL
+    # model_type='cyto' or model_type='nuclei'
+    model = models.Cellpose(gpu=False, model_type='cyto3', )
+
+    # define CHANNELS to run segementation on
+    # grayscale=0, R=1, G=2, B=3
+    # channels = [cytoplasm, nucleus]
+    # if NUCLEUS channel does not exist, set the second channel to 0
+    # channels = [0,0]
+    # IF ALL YOUR IMAGES ARE THE SAME TYPE, you can give a list with 2 elements
+    channels = [0, 0]  # IF YOU HAVE GRAYSCALE
+    # channels = [2, 3]  # IF YOU HAVE G=cytoplasm and B=nucleus
+    # channels = [2,1] # IF YOU HAVE G=cytoplasm and R=nucleus
+
+    # or if you have different types of channels in each image
+    # channels = [[0, 0], [2, 3], [0, 0]]
+
+    print('== Start counting cell for each image')
+    lst_cell_analysis = []
+    print(lst_path)
+    for index, filename in tqdm(enumerate(lst_path)):
+        print(f'Processing on epoch: {index}')
+        if filename.endswith('.tif') or filename.endswith('.png') or filename.endswith('.jpg'):
+            # Load the image
+            img_path = os.path.join(PATH, filename)
+            img = imread(img_path)
+
+            # Run Cellpose on the image
+            masks, flows, styles, diams = model.eval(img, diameter=None)
+
+            # Count the number of segments
+            # Subtract 1 to exclude the background
+            num_segments = len(np.unique(masks)) - 1
+            lst_cell_analysis.append(num_segments)
+            print(f"Number of segments in {filename}: {num_segments}")
+
+    # print(f"Total number of segments in the folder: {len(lst_cell_analysis)}")
+    return lst_cell_analysis
 
 
 if __name__ == '__main__':
