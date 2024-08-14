@@ -13,14 +13,16 @@ from torchvision import datasets, transforms
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import Mixup
 from timm.data import create_transform
+from torch.utils.data import Dataset, DataLoader, random_split, WeightedRandomSampler
 
 from .cached_image_folder import CachedImageFolder
 from .imagenet22k_dataset import IN22KDATASET
+from .mendeley_dataset import Mendeley
 from .samplers import SubsetRandomSampler
+from tqdm import tqdm
 
 try:
     from torchvision.transforms import InterpolationMode
-
 
     def _pil_interp(method):
         if method == 'bicubic':
@@ -33,7 +35,6 @@ try:
             # default bilinear, do we want to allow nearest?
             return InterpolationMode.BILINEAR
 
-
     import timm.data.transforms as timm_transforms
 
     timm_transforms._pil_interp = _pil_interp
@@ -43,46 +44,50 @@ except:
 
 def build_loader(config):
     config.defrost()
-    dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
-    config.freeze()
-    print(f"rank {dist.get_rank()} successfully build train dataset")
-    dataset_val, _ = build_dataset(is_train=False, config=config)
-    print(f"rank {dist.get_rank()} successfully build val dataset")
+    # dataset_train, config.MODEL.NUM_CLASSES = build_dataset(
+    #     is_train=True, config=config)
+    # config.freeze()
+    # print(f"rank {dist.get_rank()} successfully build train dataset")
+    # dataset_val, _ = build_dataset(is_train=False, config=config)
+    # print(f"rank {dist.get_rank()} successfully build val dataset")
 
-    num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
-    if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
-        indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
-        sampler_train = SubsetRandomSampler(indices)
-    else:
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
+    # num_tasks = dist.get_world_size()
+    # global_rank = dist.get_rank()
+    # if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
+    #     indices = np.arange(dist.get_rank(), len(
+    #         dataset_train), dist.get_world_size())
+    #     sampler_train = SubsetRandomSampler(indices)
+    # else:
+    #     sampler_train = torch.utils.data.DistributedSampler(
+    #         dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+    #     )
 
-    if config.TEST.SEQUENTIAL:
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    else:
-        sampler_val = torch.utils.data.distributed.DistributedSampler(
-            dataset_val, shuffle=config.TEST.SHUFFLE
-        )
+    # if config.TEST.SEQUENTIAL:
+    #     sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+    # else:
+    #     sampler_val = torch.utils.data.distributed.DistributedSampler(
+    #         dataset_val, shuffle=config.TEST.SHUFFLE
+    #     )
 
-    data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
-        batch_size=config.DATA.BATCH_SIZE,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=True,
-    )
+    # data_loader_train = torch.utils.data.DataLoader(
+    #     dataset_train, sampler=sampler_train,
+    #     batch_size=config.DATA.BATCH_SIZE,
+    #     num_workers=config.DATA.NUM_WORKERS,
+    #     pin_memory=config.DATA.PIN_MEMORY,
+    #     drop_last=True,
+    # )
 
-    data_loader_val = torch.utils.data.DataLoader(
-        dataset_val, sampler=sampler_val,
-        batch_size=config.DATA.BATCH_SIZE,
-        shuffle=False,
-        num_workers=config.DATA.NUM_WORKERS,
-        pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=False
-    )
+    # data_loader_val = torch.utils.data.DataLoader(
+    #     dataset_val, sampler=sampler_val,
+    #     batch_size=config.DATA.BATCH_SIZE,
+    #     shuffle=False,
+    #     num_workers=config.DATA.NUM_WORKERS,
+    #     pin_memory=config.DATA.PIN_MEMORY,
+    #     drop_last=False
+    # )
 
+    mendeley_dataset = Mendeley(config=config)
+    data_loader_train, data_loader_val, data_loader_test, dataset_train, dataset_val, dataset_test = mendeley_dataset.get_loaders()
     # setup mixup / cutmix
     mixup_fn = None
     mixup_active = config.AUG.MIXUP > 0 or config.AUG.CUTMIX > 0. or config.AUG.CUTMIX_MINMAX is not None
@@ -92,7 +97,7 @@ def build_loader(config):
             prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
             label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=config.MODEL.NUM_CLASSES)
 
-    return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
+    return dataset_train, dataset_val, dataset_test, data_loader_train, data_loader_val, data_loader_test, mixup_fn
 
 
 def build_dataset(is_train, config):
@@ -116,6 +121,10 @@ def build_dataset(is_train, config):
             ann_file = prefix + "_map_val.txt"
         dataset = IN22KDATASET(config.DATA.DATA_PATH, ann_file, transform)
         nb_classes = 21841
+    elif config.DATA.DATASET == 'mendeley':
+        prefix = 'mendeley'
+        dataset = Mendeley(config=config)
+        nb_classes = 4
     else:
         raise NotImplementedError("We only support ImageNet Now.")
 
@@ -139,7 +148,8 @@ def build_transform(is_train, config):
         if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
-            transform.transforms[0] = transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4)
+            transform.transforms[0] = transforms.RandomCrop(
+                config.DATA.IMG_SIZE, padding=4)
         return transform
 
     t = []
@@ -147,7 +157,8 @@ def build_transform(is_train, config):
         if config.TEST.CROP:
             size = int((256 / 224) * config.DATA.IMG_SIZE)
             t.append(
-                transforms.Resize(size, interpolation=_pil_interp(config.DATA.INTERPOLATION)),
+                transforms.Resize(size, interpolation=_pil_interp(
+                    config.DATA.INTERPOLATION)),
                 # to maintain same ratio w.r.t. 224 images
             )
             t.append(transforms.CenterCrop(config.DATA.IMG_SIZE))

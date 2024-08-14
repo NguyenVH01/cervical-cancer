@@ -1,12 +1,3 @@
-# --------------------------------------------------------
-# Modified by $@#Anonymous#@$
-# --------------------------------------------------------
-# Swin Transformer
-# Copyright (c) 2021 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Written by Ze Liu
-# --------------------------------------------------------
-
 import os
 import time
 import json
@@ -19,17 +10,19 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-
+import torchvision
+import torchvision.transforms as transforms
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.utils import accuracy, AverageMeter
 
 from config import get_config
+from mamba.classification.data.mendeley_dataset import Mendeley
 from models import build_model
 from data import build_loader
 from utils.lr_scheduler import build_scheduler
 from utils.optimizer import build_optimizer
 from utils.logger import create_logger
-from utils.utils import  NativeScalerWithGradNormCount, auto_resume_helper, reduce_tensor
+from utils.utils import NativeScalerWithGradNormCount, auto_resume_helper, reduce_tensor
 from utils.utils import load_checkpoint_ema, load_pretrained_ema, save_checkpoint_ema
 
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count
@@ -39,6 +32,12 @@ from timm.utils import ModelEma as ModelEma
 if torch.multiprocessing.get_start_method() != "spawn":
     print(f"||{torch.multiprocessing.get_start_method()}||", end="")
     torch.multiprocessing.set_start_method("spawn", force=True)
+
+def load_dataset():
+    mendeley_dataset = Mendeley(config=config)
+    train_loader, val_loader, test_loader = mendeley_dataset.get_loaders()
+    return train_loader, val_loader, test_loader
+
 
 def str2bool(v):
     """
@@ -56,8 +55,10 @@ def str2bool(v):
 
 
 def parse_option():
-    parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)
-    parser.add_argument('--cfg', type=str, metavar="FILE", default="", help='path to config file', )
+    parser = argparse.ArgumentParser(
+        'Swin Transformer training and evaluation script', add_help=False)
+    parser.add_argument('--cfg', type=str, metavar="FILE",
+                        default="", help='path to config file', )
     parser.add_argument(
         "--opts",
         help="Modify config options by adding 'KEY VALUE' pairs. ",
@@ -66,9 +67,12 @@ def parse_option():
     )
 
     # easy config modification
-    parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
-    parser.add_argument('--data-path', type=str, default="/dataset/ImageNet_ILSVRC2012", help='path to dataset')
-    parser.add_argument('--zip', action='store_true', help='use zipped dataset instead of folder dataset')
+    parser.add_argument('--batch-size', type=int,
+                        help="batch size for single GPU")
+    parser.add_argument('--data-path', type=str,
+                        default="/dataset/ImageNet_ILSVRC2012", help='path to dataset')
+    parser.add_argument('--zip', action='store_true',
+                        help='use zipped dataset instead of folder dataset')
     parser.add_argument('--cache-mode', type=str, default='part', choices=['no', 'full', 'part'],
                         help='no: no cache, '
                              'full: cache all data, '
@@ -76,25 +80,35 @@ def parse_option():
     parser.add_argument('--pretrained',
                         help='pretrained weight from checkpoint, could be imagenet22k pretrained weight')
     parser.add_argument('--resume', help='resume from checkpoint')
-    parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
+    parser.add_argument('--accumulation-steps', type=int,
+                        help="gradient accumulation steps")
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
-    parser.add_argument('--disable_amp', action='store_true', help='Disable pytorch amp')
+    parser.add_argument('--disable_amp', action='store_true',
+                        help='Disable pytorch amp')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
-    parser.add_argument('--tag', default=time.strftime("%Y%m%d%H%M%S", time.localtime()), help='tag of experiment')
-    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
-    parser.add_argument('--throughput', action='store_true', help='Test throughput only')
+    parser.add_argument('--tag', default=time.strftime("%Y%m%d%H%M%S",
+                        time.localtime()), help='tag of experiment')
+    parser.add_argument('--eval', action='store_true',
+                        help='Perform evaluation only')
+    parser.add_argument('--throughput', action='store_true',
+                        help='Test throughput only')
 
-    parser.add_argument('--fused_layernorm', action='store_true', help='Use fused layernorm.')
-    parser.add_argument('--optim', type=str, help='overwrite optimizer if provided, can be adamw/sgd.')
+    parser.add_argument('--fused_layernorm',
+                        action='store_true', help='Use fused layernorm.')
+    parser.add_argument(
+        '--optim', type=str, help='overwrite optimizer if provided, can be adamw/sgd.')
 
     # EMA related parameters
     parser.add_argument('--model_ema', type=str2bool, default=True)
-    parser.add_argument('--model_ema_decay', type=float, default=0.9999, help='')
-    parser.add_argument('--model_ema_force_cpu', type=str2bool, default=False, help='')
+    parser.add_argument('--model_ema_decay', type=float,
+                        default=0.9999, help='')
+    parser.add_argument('--model_ema_force_cpu',
+                        type=str2bool, default=False, help='')
 
-    parser.add_argument('--memory_limit_rate', type=float, default=-1, help='limitation of gpu memory use')
+    parser.add_argument('--memory_limit_rate', type=float,
+                        default=-1, help='limitation of gpu memory use')
 
     args, unparsed = parser.parse_known_args()
 
@@ -104,7 +118,8 @@ def parse_option():
 
 
 def main(config, args):
-    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
+    dataset_train, dataset_val, dataset_test, data_loader_train, data_loader_val, data_loader_test, mixup_fn = build_loader(
+        config)
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
@@ -112,12 +127,14 @@ def main(config, args):
     if dist.get_rank() == 0:
         if hasattr(model, 'flops'):
             logger.info(str(model))
-            n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            n_parameters = sum(p.numel()
+                               for p in model.parameters() if p.requires_grad)
             logger.info(f"number of params: {n_parameters}")
             flops = model.flops()
             logger.info(f"number of GFLOPs: {flops / 1e9}")
         else:
-            logger.info(flop_count_str(FlopCountAnalysis(model, (dataset_val[0][0][None],))))
+            logger.info(flop_count_str(FlopCountAnalysis(
+                model, (dataset_val[0][0][None],))))
     torch.cuda.empty_cache()
     dist.barrier()
     model.cuda()
@@ -133,21 +150,24 @@ def main(config, args):
             resume='')
         print("Using EMA with decay = %.8f" % args.model_ema_decay)
 
-
     optimizer = build_optimizer(config, model, logger)
-    model = torch.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
+    model = torch.nn.parallel.DistributedDataParallel(
+        model, broadcast_buffers=False)
     loss_scaler = NativeScalerWithGradNormCount()
 
     if config.TRAIN.ACCUMULATION_STEPS > 1:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
+        lr_scheduler = build_scheduler(config, optimizer, len(
+            data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
     else:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+        lr_scheduler = build_scheduler(
+            config, optimizer, len(data_loader_train))
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
         criterion = SoftTargetCrossEntropy()
     elif config.MODEL.LABEL_SMOOTHING > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
+        criterion = LabelSmoothingCrossEntropy(
+            smoothing=config.MODEL.LABEL_SMOOTHING)
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
@@ -158,21 +178,27 @@ def main(config, args):
         resume_file = auto_resume_helper(config.OUTPUT)
         if resume_file:
             if config.MODEL.RESUME:
-                logger.warning(f"auto-resume changing resume file from {config.MODEL.RESUME} to {resume_file}")
+                logger.warning(
+                    f"auto-resume changing resume file from {config.MODEL.RESUME} to {resume_file}")
             config.defrost()
             config.MODEL.RESUME = resume_file
             config.freeze()
             logger.info(f'auto resuming from {resume_file}')
         else:
-            logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
+            logger.info(f'no checkpoint found in {
+                        config.OUTPUT}, ignoring auto resume')
 
     if config.MODEL.RESUME:
-        max_accuracy, max_accuracy_ema = load_checkpoint_ema(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger, model_ema)
+        max_accuracy, max_accuracy_ema = load_checkpoint_ema(
+            config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger, model_ema)
         acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        logger.info(f"Accuracy of the network on the {
+                    len(dataset_val)} test images: {acc1:.1f}%")
         if model_ema is not None:
-            acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
-            logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
+            acc1_ema, acc5_ema, loss_ema = validate(
+                config, data_loader_val, model_ema.ema)
+            logger.info(f"Accuracy of the network ema on the {
+                        len(dataset_val)} test images: {acc1_ema:.1f}%")
 
         if config.EVAL_MODE:
             return
@@ -180,11 +206,14 @@ def main(config, args):
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained_ema(config, model_without_ddp, logger, model_ema)
         acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        logger.info(f"Accuracy of the network on the {
+                    len(dataset_val)} test images: {acc1:.1f}%")
         if model_ema is not None:
-            acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
-            logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
-        
+            acc1_ema, acc5_ema, loss_ema = validate(
+                config, data_loader_val, model_ema.ema)
+            logger.info(f"Accuracy of the network ema on the {
+                        len(dataset_val)} test images: {acc1_ema:.1f}%")
+
         if config.EVAL_MODE:
             return
 
@@ -197,26 +226,29 @@ def main(config, args):
             throughput(data_loader_val, model_ema.ema, logger)
         return
 
-
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
         data_loader_train.sampler.set_epoch(epoch)
 
-        train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema)
+        train_one_epoch(config, model, criterion, data_loader_train,
+                        optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint_ema(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler, logger, model_ema, max_accuracy_ema)
+            save_checkpoint_ema(config, epoch, model_without_ddp, max_accuracy, optimizer,
+                                lr_scheduler, loss_scaler, logger, model_ema, max_accuracy_ema)
 
         acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        logger.info(f"Accuracy of the network on the {
+                    len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
         if model_ema is not None:
-            acc1_ema, acc5_ema, loss_ema = validate(config, data_loader_val, model_ema.ema)
-            logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
+            acc1_ema, acc5_ema, loss_ema = validate(
+                config, data_loader_val, model_ema.ema)
+            logger.info(f"Accuracy of the network on the {
+                        len(dataset_val)} test images: {acc1_ema:.1f}%")
             max_accuracy_ema = max(max_accuracy_ema, acc1_ema)
             logger.info(f'Max accuracy ema: {max_accuracy_ema:.2f}%')
-
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -253,13 +285,15 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         loss = loss / config.TRAIN.ACCUMULATION_STEPS
 
         # this attribute is added by timm on one optimizer (adahessian)
-        is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+        is_second_order = hasattr(
+            optimizer, 'is_second_order') and optimizer.is_second_order
         grad_norm = loss_scaler(loss, optimizer, clip_grad=config.TRAIN.CLIP_GRAD,
                                 parameters=model.parameters(), create_graph=is_second_order,
                                 update_grad=(idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0)
         if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
             optimizer.zero_grad()
-            lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
+            lr_scheduler.step_update(
+                (epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
             if model_ema is not None:
                 model_ema.update(model)
         loss_scale_value = loss_scaler.state_dict()["scale"]
@@ -281,9 +315,11 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
             wd = optimizer.param_groups[0]['weight_decay']
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             etas = batch_time.avg * (num_steps - idx)
+
             logger.info(
                 f'Train: [{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}]\t'
-                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t wd {wd:.4f}\t'
+                f'eta {datetime.timedelta(seconds=int(etas))} lr {
+                    lr:.6f}\t wd {wd:.4f}\t'
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'data time {data_time.val:.4f} ({data_time.avg:.4f})\t'
                 f'model time {model_time.val:.4f} ({model_time.avg:.4f})\t'
@@ -292,7 +328,8 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 f'loss_scale {scaler_meter.val:.4f} ({scaler_meter.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
     epoch_time = time.time() - start
-    logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+    logger.info(f"EPOCH {epoch} training takes {
+                datetime.timedelta(seconds=int(epoch_time))}")
 
 
 @torch.no_grad()
@@ -359,7 +396,8 @@ def throughput(data_loader, model, logger):
             model(images)
         torch.cuda.synchronize()
         tic2 = time.time()
-        logger.info(f"batch_size {batch_size} throughput {30 * batch_size / (tic2 - tic1)}")
+        logger.info(f"batch_size {batch_size} throughput {
+                    30 * batch_size / (tic2 - tic1)}")
         return
 
 
@@ -377,7 +415,8 @@ if __name__ == '__main__':
         rank = -1
         world_size = -1
     torch.cuda.set_device(rank)
-    dist.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    dist.init_process_group(
+        backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     dist.barrier()
 
     seed = config.SEED + dist.get_rank()
@@ -387,15 +426,18 @@ if __name__ == '__main__':
     random.seed(seed)
     cudnn.benchmark = True
 
-    if True: 
+    if True:
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = True
 
     # linear scale the learning rate according to total batch size, may not be optimal
-    linear_scaled_lr = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    linear_scaled_warmup_lr = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    linear_scaled_min_lr = config.TRAIN.MIN_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    linear_scaled_lr = config.TRAIN.BASE_LR * \
+        config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    linear_scaled_warmup_lr = config.TRAIN.WARMUP_LR * \
+        config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    linear_scaled_min_lr = config.TRAIN.MIN_LR * \
+        config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
     # gradient accumulation also need to scale the learning rate
     if config.TRAIN.ACCUMULATION_STEPS > 1:
         linear_scaled_lr = linear_scaled_lr * config.TRAIN.ACCUMULATION_STEPS
@@ -420,7 +462,8 @@ if __name__ == '__main__':
     print(config.OUTPUT, flush=True)
     config.freeze()
     os.makedirs(config.OUTPUT, exist_ok=True)
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}")
+    logger = create_logger(output_dir=config.OUTPUT,
+                           dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}")
 
     if dist.get_rank() == 0:
         path = os.path.join(config.OUTPUT, "config.json")
@@ -434,7 +477,9 @@ if __name__ == '__main__':
 
     if args.memory_limit_rate > 0 and args.memory_limit_rate < 1:
         torch.cuda.set_per_process_memory_fraction(args.memory_limit_rate)
-        usable_memory = torch.cuda.get_device_properties(0).total_memory * args.memory_limit_rate / 1e6
-        print(f"===========> GPU memory is limited to {usable_memory}MB", flush=True)
+        usable_memory = torch.cuda.get_device_properties(
+            0).total_memory * args.memory_limit_rate / 1e6
+        print(f"===========> GPU memory is limited to {
+              usable_memory}MB", flush=True)
 
     main(config, args)

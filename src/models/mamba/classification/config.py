@@ -59,7 +59,7 @@ _C.MODEL.PRETRAINED = ''
 # Checkpoint to resume, could be overwritten by command line argument
 _C.MODEL.RESUME = ''
 # Number of classes, overwritten in data preparation
-_C.MODEL.NUM_CLASSES = 1000
+_C.MODEL.NUM_CLASSES = 4
 # Dropout rate
 _C.MODEL.DROP_RATE = 0.0
 # Drop path rate
@@ -101,7 +101,7 @@ _C.MODEL.VSSM.GMLP = False
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
-_C.TRAIN.EPOCHS = 300
+_C.TRAIN.EPOCHS = 100
 _C.TRAIN.WARMUP_EPOCHS = 20
 _C.TRAIN.WEIGHT_DECAY = 0.05
 _C.TRAIN.BASE_LR = 5e-4
@@ -280,7 +280,7 @@ def update_config(config, args):
     # for acceleration
     if _check_args('fused_layernorm'):
         config.FUSED_LAYERNORM = True
-    ## Overwrite optimizer if not None, currently we use it for [fused_adam, fused_lamb]
+    # Overwrite optimizer if not None, currently we use it for [fused_adam, fused_lamb]
     if _check_args('optim'):
         config.TRAIN.OPTIMIZER.NAME = args.optim
 
