@@ -16,7 +16,7 @@ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.utils import accuracy, AverageMeter
 
 from config import get_config
-from mamba.classification.data.mendeley_dataset import Mendeley
+from data.mendeley_dataset import Mendeley
 from models import build_model
 from data import build_loader
 from utils.lr_scheduler import build_scheduler
@@ -242,6 +242,7 @@ def main(config, args):
                     len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
+
         if model_ema is not None:
             acc1_ema, acc5_ema, loss_ema = validate(
                 config, data_loader_val, model_ema.ema)

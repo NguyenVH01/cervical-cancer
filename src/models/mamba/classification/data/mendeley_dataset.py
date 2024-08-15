@@ -11,7 +11,7 @@ class Mendeley():
     def __init__(self, config, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1):
         self.data_path = config.DATA.DATA_PATH
         self.batch_size = config.DATA.BATCH_SIZE
-        self.num_classes = config.DATA.NUM_CLASSES
+        self.num_classes = config.MODEL.NUM_CLASSES
         self.train_ratio = train_ratio
         self.val_ratio = val_ratio
         self.test_ratio = test_ratio
@@ -30,7 +30,7 @@ class Mendeley():
 
         # Định nghĩa các phép biến đổi cho dữ liệu val và test (không có augmentation)
         self.test_transform = transforms.Compose([
-            transforms.Resize((128, 128)),
+            transforms.Resize((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
                                  0.229, 0.224, 0.225])
