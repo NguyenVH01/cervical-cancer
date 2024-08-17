@@ -229,8 +229,6 @@ def main(config, args):
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
-        data_loader_train.sampler.set_epoch(epoch)
-
         train_one_epoch(config, model, criterion, data_loader_train,
                         optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
@@ -354,7 +352,8 @@ def validate(config, data_loader, model):
 
         # measure accuracy and record loss
         loss = criterion(output, target)
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = accuracy(output, target, topk=(
+            1, config.MODEL.NUM_CLASSES))
 
         acc1 = reduce_tensor(acc1)
         acc5 = reduce_tensor(acc5)
