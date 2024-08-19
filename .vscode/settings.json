@@ -1,6 +1,7 @@
 {
     "git.ignoreLimitWarning": true,
     "python.analysis.extraPaths": [
-        "./src/models"
+        "./src/models",
+        "./src/models/mamba/classification/models"
     ]
 }
