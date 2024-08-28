@@ -119,7 +119,7 @@ def parse_option():
 
 def main(config, args):
     dataset_train, dataset_val, dataset_test, data_loader_train, data_loader_val, data_loader_test, mixup_fn = build_loader(
-        config)
+        config, True, True)
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)

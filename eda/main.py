@@ -2,17 +2,19 @@ import os
 import pandas as pd
 from PIL import Image
 
-CSV_PATH = 'eda/Data_clean_v1.csv'
-IMAGE_PATH = 'eda/smear_test'
-IMAGE_COL = 'TÊN FILE'
-IMAGE_PATH_COL = 'ĐƯỜNG DẪN FILE'
+CSV_PATH = 'eda/phu_san.csv'
+IMAGE_PATH = 'eda/phụ sản'
+IMAGE_COL = 'PICTURE'
+IMAGE_PATH_COL = 'eda/phụ sản'
 IMAGE_EXTENSIONS = ['.jpg', '.bmp', '.png']
 DATASET_PATH = 'src/dataset'
 
 
 def read_data_csv(path):
     """Đọc dữ liệu từ file CSV."""
-    return pd.read_csv(path, sep=';')
+    data = pd.read_csv(path)
+
+    return data
 
 def read_image_info(path):
     """Đọc danh sách các file hình ảnh từ thư mục."""
@@ -21,7 +23,7 @@ def read_image_info(path):
 def rename_images(image_path_files, image_list, image_col=IMAGE_COL):
     """Đổi tên các file hình ảnh theo thứ tự."""
     new_paths = []
-    for idx, original_name in enumerate(image_path_files[image_col], start=1):
+    for idx, original_name in enumerate(image_path_files[image_col], start=823):
         new_name = f"{idx}.png"
         new_paths.append(new_name)
 
@@ -31,9 +33,7 @@ def rename_images(image_path_files, image_list, image_col=IMAGE_COL):
 
     image_path_files[image_col] = new_paths
 
-    image_path_files.drop(IMAGE_PATH_COL, axis=1, inplace=True)
-
-    image_path_files.to_csv('eda/clean_v2.csv', index=False)
+    image_path_files.to_csv('eda/clean_phu_san_v1.csv', index=False)
     print(image_path_files)
 
 def convert_images_to_png():
@@ -76,5 +76,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # main()
+    main()
     convert_images_to_png()
