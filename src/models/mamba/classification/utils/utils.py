@@ -14,14 +14,15 @@ import torch.distributed as dist
 from timm.utils import ModelEma as ModelEma
 
 
-def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, logger, model_ema: ModelEma=None):
-    logger.info(f"==============> Resuming form {config.MODEL.RESUME}....................")
+def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, logger, model_ema: ModelEma = None):
+    logger.info(f"==============> Resuming form {
+                config.MODEL.RESUME}....................")
     if config.MODEL.RESUME.startswith('https'):
         checkpoint = torch.hub.load_state_dict_from_url(
             config.MODEL.RESUME, map_location='cpu', check_hash=True)
     else:
         checkpoint = torch.load(config.MODEL.RESUME, map_location='cpu')
-    
+
     if 'model' in checkpoint:
         msg = model.load_state_dict(checkpoint['model'], strict=False)
         logger.info(f"resuming model: {msg}")
@@ -30,7 +31,8 @@ def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, log
 
     if model_ema is not None:
         if 'model_ema' in checkpoint:
-            msg = model_ema.ema.load_state_dict(checkpoint['model_ema'], strict=False)
+            msg = model_ema.ema.load_state_dict(
+                checkpoint['model_ema'], strict=False)
             logger.info(f"resuming model_ema: {msg}")
         else:
             logger.warning(f"No 'model_ema' found in {config.MODEL.RESUME}! ")
@@ -45,7 +47,8 @@ def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, log
         config.freeze()
         if 'scaler' in checkpoint:
             loss_scaler.load_state_dict(checkpoint['scaler'])
-        logger.info(f"=> loaded successfully '{config.MODEL.RESUME}' (epoch {checkpoint['epoch']})")
+        logger.info(f"=> loaded successfully '{
+                    config.MODEL.RESUME}' (epoch {checkpoint['epoch']})")
         if 'max_accuracy' in checkpoint:
             max_accuracy = checkpoint['max_accuracy']
         if 'max_accuracy_ema' in checkpoint:
@@ -56,14 +59,27 @@ def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, log
     return max_accuracy, max_accuracy_ema
 
 
-def load_pretrained_ema(config, model, logger, model_ema: ModelEma=None):
-    logger.info(f"==============> Loading weight {config.MODEL.PRETRAINED} for fine-tuning......")
+def load_pretrained_ema(config, model, logger, model_ema: ModelEma = None):
+    logger.info(f"==============> Loading weight {
+                config.MODEL.PRETRAINED} for fine-tuning......")
     checkpoint = torch.load(config.MODEL.PRETRAINED, map_location='cpu')
-    
+
     if 'model' in checkpoint:
-        msg = model.load_state_dict(checkpoint['model'], strict=False)
+        # msg = model.load_state_dict(checkpoint['model'], strict=False)
+        checkpoint_state_dict = checkpoint['model']
+        current_model_state_dict = model.state_dict()
+        # Create a new state dictionary by comparing the sizes of tensors
+        new_state_dict = {}
+        for k, v in current_model_state_dict.items():
+            if k in checkpoint_state_dict and v.size() == checkpoint_state_dict[k].size():
+                new_state_dict[k] = checkpoint_state_dict[k]
+            else:
+                new_state_dict[k] = v
+        # Load the new state dictionary into the model
+        msg = model.load_state_dict(new_state_dict, strict=False)
         logger.warning(msg)
-        logger.info(f"=> loaded 'model' successfully from '{config.MODEL.PRETRAINED}'")
+        logger.info(f"=> loaded 'model' successfully from '{
+                    config.MODEL.PRETRAINED}'")
     else:
         logger.warning(f"No 'model' found in {config.MODEL.PRETRAINED}! ")
 
@@ -72,9 +88,22 @@ def load_pretrained_ema(config, model, logger, model_ema: ModelEma=None):
             logger.info(f"=> loading 'model_ema' separately...")
         key = "model_ema" if ("model_ema" in checkpoint) else "model"
         if key in checkpoint:
-            msg = model_ema.ema.load_state_dict(checkpoint[key], strict=False)
+            # msg = model_ema.ema.load_state_dict(checkpoint[key], strict=False)
+            checkpoint_state_dict = checkpoint['model']
+            current_model_state_dict = model_ema.ema.state_dict()
+            # Create a new state dictionary by comparing the sizes of tensors
+            new_state_dict = {}
+            for k, v in current_model_state_dict.items():
+                if k in checkpoint_state_dict and v.size() == checkpoint_state_dict[k].size():
+                    new_state_dict[k] = checkpoint_state_dict[k]
+                else:
+                    new_state_dict[k] = v
+            # Load the new state dictionary into the model
+            msg = model_ema.ema.load_state_dict(new_state_dict, strict=False)
+
             logger.warning(msg)
-            logger.info(f"=> loaded '{key}' successfully from '{config.MODEL.PRETRAINED}' for model_ema")
+            logger.info(f"=> loaded '{key}' successfully from '{
+                        config.MODEL.PRETRAINED}' for model_ema")
         else:
             logger.warning(f"No '{key}' found in {config.MODEL.PRETRAINED}! ")
 
@@ -82,7 +111,7 @@ def load_pretrained_ema(config, model, logger, model_ema: ModelEma=None):
     torch.cuda.empty_cache()
 
 
-def save_checkpoint_ema(config, epoch, model, max_accuracy, optimizer, lr_scheduler, loss_scaler, logger, model_ema: ModelEma=None, max_accuracy_ema=None):
+def save_checkpoint_ema(config, epoch, model, max_accuracy, optimizer, lr_scheduler, loss_scaler, logger, model_ema: ModelEma = None, max_accuracy_ema=None):
     save_state = {'model': model.state_dict(),
                   'optimizer': optimizer.state_dict(),
                   'lr_scheduler': lr_scheduler.state_dict(),
@@ -90,10 +119,10 @@ def save_checkpoint_ema(config, epoch, model, max_accuracy, optimizer, lr_schedu
                   'scaler': loss_scaler.state_dict(),
                   'epoch': epoch,
                   'config': config}
-    
+
     if model_ema is not None:
         save_state.update({'model_ema': model_ema.ema.state_dict(),
-            'max_accuray_ema': max_accuracy_ema})
+                           'max_accuray_ema': max_accuracy_ema})
 
     save_path = os.path.join(config.OUTPUT, f'ckpt_epoch_{epoch}.pth')
     logger.info(f"{save_path} saving......")
@@ -119,7 +148,8 @@ def auto_resume_helper(output_dir):
     checkpoints = [ckpt for ckpt in checkpoints if ckpt.endswith('pth')]
     print(f"All checkpoints founded in {output_dir}: {checkpoints}")
     if len(checkpoints) > 0:
-        latest_checkpoint = max([os.path.join(output_dir, d) for d in checkpoints], key=os.path.getmtime)
+        latest_checkpoint = max([os.path.join(output_dir, d)
+                                for d in checkpoints], key=os.path.getmtime)
         print(f"The latest checkpoint founded: {latest_checkpoint}")
         resume_file = latest_checkpoint
     else:
@@ -143,7 +173,8 @@ def ampscaler_get_grad_norm(parameters, norm_type: float = 2.0) -> torch.Tensor:
         return torch.tensor(0.)
     device = parameters[0].grad.device
     if norm_type == inf:
-        total_norm = max(p.grad.detach().abs().max().to(device) for p in parameters)
+        total_norm = max(p.grad.detach().abs().max().to(device)
+                         for p in parameters)
     else:
         total_norm = torch.norm(torch.stack([torch.norm(p.grad.detach(),
                                                         norm_type).to(device) for p in parameters]), norm_type)
@@ -161,7 +192,8 @@ class NativeScalerWithGradNormCount:
         if update_grad:
             if clip_grad is not None:
                 assert parameters is not None
-                self._scaler.unscale_(optimizer)  # unscale the gradients of optimizer's assigned params in-place
+                # unscale the gradients of optimizer's assigned params in-place
+                self._scaler.unscale_(optimizer)
                 norm = torch.nn.utils.clip_grad_norm_(parameters, clip_grad)
             else:
                 self._scaler.unscale_(optimizer)
@@ -177,4 +209,3 @@ class NativeScalerWithGradNormCount:
 
     def load_state_dict(self, state_dict):
         self._scaler.load_state_dict(state_dict)
-
