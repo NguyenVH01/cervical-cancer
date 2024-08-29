@@ -15,8 +15,7 @@ from timm.utils import ModelEma as ModelEma
 
 
 def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, logger, model_ema: ModelEma = None):
-    logger.info(f"==============> Resuming form {
-                config.MODEL.RESUME}....................")
+    logger.info(f"==============> Resuming form {config.MODEL.RESUME}....................")
     if config.MODEL.RESUME.startswith('https'):
         checkpoint = torch.hub.load_state_dict_from_url(
             config.MODEL.RESUME, map_location='cpu', check_hash=True)
@@ -60,8 +59,7 @@ def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, log
 
 
 def load_pretrained_ema(config, model, logger, model_ema: ModelEma = None):
-    logger.info(f"==============> Loading weight {
-                config.MODEL.PRETRAINED} for fine-tuning......")
+    logger.info(f"==============> Loading weight {config.MODEL.PRETRAINED} for fine-tuning......")
     checkpoint = torch.load(config.MODEL.PRETRAINED, map_location='cpu')
 
     if 'model' in checkpoint:

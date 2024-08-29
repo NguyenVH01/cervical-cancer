@@ -192,13 +192,11 @@ def main(config, args):
         max_accuracy, max_accuracy_ema = load_checkpoint_ema(
             config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger, model_ema)
         acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {
-                    len(dataset_val)} test images: {acc1:.1f}%")
+        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         if model_ema is not None:
             acc1_ema, acc5_ema, loss_ema = validate(
                 config, data_loader_val, model_ema.ema)
-            logger.info(f"Accuracy of the network ema on the {
-                        len(dataset_val)} test images: {acc1_ema:.1f}%")
+            logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
 
         if config.EVAL_MODE:
             return
@@ -206,13 +204,11 @@ def main(config, args):
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained_ema(config, model_without_ddp, logger, model_ema)
         acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {
-                    len(dataset_val)} test images: {acc1:.1f}%")
+        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         if model_ema is not None:
             acc1_ema, acc5_ema, loss_ema = validate(
                 config, data_loader_val, model_ema.ema)
-            logger.info(f"Accuracy of the network ema on the {
-                        len(dataset_val)} test images: {acc1_ema:.1f}%")
+            logger.info(f"Accuracy of the network ema on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
 
         if config.EVAL_MODE:
             return
@@ -236,16 +232,14 @@ def main(config, args):
                                 lr_scheduler, loss_scaler, logger, model_ema, max_accuracy_ema)
 
         acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {
-                    len(dataset_val)} test images: {acc1:.1f}%")
+        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
 
         if model_ema is not None:
             acc1_ema, acc5_ema, loss_ema = validate(
                 config, data_loader_val, model_ema.ema)
-            logger.info(f"Accuracy of the network on the {
-                        len(dataset_val)} test images: {acc1_ema:.1f}%")
+            logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1_ema:.1f}%")
             max_accuracy_ema = max(max_accuracy_ema, acc1_ema)
             logger.info(f'Max accuracy ema: {max_accuracy_ema:.2f}%')
 
@@ -327,8 +321,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 f'loss_scale {scaler_meter.val:.4f} ({scaler_meter.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
     epoch_time = time.time() - start
-    logger.info(f"EPOCH {epoch} training takes {
-                datetime.timedelta(seconds=int(epoch_time))}")
+    logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
 
 @torch.no_grad()
@@ -396,8 +389,7 @@ def throughput(data_loader, model, logger):
             model(images)
         torch.cuda.synchronize()
         tic2 = time.time()
-        logger.info(f"batch_size {batch_size} throughput {
-                    30 * batch_size / (tic2 - tic1)}")
+        logger.info(f"batch_size {batch_size} throughput {30 * batch_size / (tic2 - tic1)}")
         return
 
 
@@ -479,7 +471,6 @@ if __name__ == '__main__':
         torch.cuda.set_per_process_memory_fraction(args.memory_limit_rate)
         usable_memory = torch.cuda.get_device_properties(
             0).total_memory * args.memory_limit_rate / 1e6
-        print(f"===========> GPU memory is limited to {
-              usable_memory}MB", flush=True)
+        print(f"===========> GPU memory is limited to {usable_memory}MB", flush=True)
 
     main(config, args)
