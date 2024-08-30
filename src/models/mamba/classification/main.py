@@ -16,7 +16,7 @@ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.utils import accuracy, AverageMeter
 
 from config import get_config
-from data.mendeley_dataset import Mendeley
+from mamba.classification.data.custom_dataset import Mendeley
 from models import build_model
 from data import build_loader
 from utils.lr_scheduler import build_scheduler
