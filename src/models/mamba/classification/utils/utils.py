@@ -76,8 +76,7 @@ def load_pretrained_ema(config, model, logger, model_ema: ModelEma = None):
         # Load the new state dictionary into the model
         msg = model.load_state_dict(new_state_dict, strict=False)
         logger.warning(msg)
-        logger.info(f"=> loaded 'model' successfully from '{
-                    config.MODEL.PRETRAINED}'")
+        logger.info(f"=> loaded 'model' successfully from '{config.MODEL.PRETRAINED}'")
     else:
         logger.warning(f"No 'model' found in {config.MODEL.PRETRAINED}! ")
 
@@ -100,8 +99,7 @@ def load_pretrained_ema(config, model, logger, model_ema: ModelEma = None):
             msg = model_ema.ema.load_state_dict(new_state_dict, strict=False)
 
             logger.warning(msg)
-            logger.info(f"=> loaded '{key}' successfully from '{
-                        config.MODEL.PRETRAINED}' for model_ema")
+            logger.info(f"=> loaded '{key}' successfully from '{config.MODEL.PRETRAINED}' for model_ema")
         else:
             logger.warning(f"No '{key}' found in {config.MODEL.PRETRAINED}! ")
 
