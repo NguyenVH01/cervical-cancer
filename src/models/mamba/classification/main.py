@@ -16,7 +16,6 @@ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.utils import accuracy, AverageMeter
 
 from config import get_config
-from mamba.classification.data.custom_dataset import Mendeley
 from models import build_model
 from data import build_loader
 from utils.lr_scheduler import build_scheduler
@@ -33,10 +32,6 @@ if torch.multiprocessing.get_start_method() != "spawn":
     print(f"||{torch.multiprocessing.get_start_method()}||", end="")
     torch.multiprocessing.set_start_method("spawn", force=True)
 
-def load_dataset():
-    mendeley_dataset = Mendeley(config=config)
-    train_loader, val_loader, test_loader = mendeley_dataset.get_loaders()
-    return train_loader, val_loader, test_loader
 
 
 def str2bool(v):

@@ -97,7 +97,7 @@ def build_loader(config):
 
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
-def build_custom_dataset(config, split=[0.7, 0.15, 0.15]):
+def build_custom_dataset(config, split=[0.7, 0.2, 0.1]):
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
 
