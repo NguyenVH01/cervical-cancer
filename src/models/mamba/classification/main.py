@@ -298,6 +298,9 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
     start = time.time()
     end = time.time()
+    all_targets = []
+    all_preds = []
+
     for idx, (samples, targets) in enumerate(data_loader):
         torch.cuda.reset_peak_memory_stats()
         samples = samples.cuda(non_blocking=True)
@@ -312,6 +315,12 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
             outputs = model(samples)
         loss = criterion(outputs, targets)
         loss = loss / config.TRAIN.ACCUMULATION_STEPS
+
+        # Accumulate predictions and true labels for F1 score calculation
+        _, preds = torch.max(outputs, 1)
+        all_preds.extend(preds.cpu().numpy())
+        all_targets.extend(targets.cpu().numpy())
+
 
         # this attribute is added by timm on one optimizer (adahessian)
         is_second_order = hasattr(
@@ -356,6 +365,9 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 f'loss_scale {scaler_meter.val:.4f} ({scaler_meter.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
     epoch_time = time.time() - start
+    # Calculate F1 score at the end of the epoch
+    f1 = f1_score(all_targets, all_preds, average='weighted')
+    print(f'Epoch {epoch} F1 Score: {f1:.4f}')
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
 
@@ -370,6 +382,8 @@ def validate(config, data_loader, model):
     acc5_meter = AverageMeter()
 
     end = time.time()
+    all_targets = []
+    all_preds = []
     for idx, (images, target) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
@@ -382,6 +396,11 @@ def validate(config, data_loader, model):
         loss = criterion(output, target)
         acc1, acc5 = accuracy(output, target, topk=(
             1, config.MODEL.NUM_CLASSES))
+        
+        # Accumulate predictions and true labels for F1 score calculation
+        _, preds = torch.max(output, 1)
+        all_preds.extend(preds.cpu().numpy())
+        all_targets.extend(target.cpu().numpy())
 
         acc1 = reduce_tensor(acc1)
         acc5 = reduce_tensor(acc5)
@@ -404,6 +423,10 @@ def validate(config, data_loader, model):
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
+            
+    # Calculate F1 score at the end of the epoch
+    f1 = f1_score(all_targets, all_preds, average='weighted')
+    print(f'F1 Score - Validate dataset: {f1:.4f}')
     logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
