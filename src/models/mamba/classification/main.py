@@ -28,6 +28,11 @@ from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count
 
 from timm.utils import ModelEma as ModelEma
 
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+from sklearn.metrics import f1_score
+
+
 if torch.multiprocessing.get_start_method() != "spawn":
     print(f"||{torch.multiprocessing.get_start_method()}||", end="")
     torch.multiprocessing.set_start_method("spawn", force=True)
@@ -240,6 +245,43 @@ def main(config, args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
+
+    ######
+    # T-SNE
+    ######
+    features = []
+    labels = []
+    classes = ["High squamous intra-epithelial lesion","Low squamous intra-epithelial lesion",
+           "Negative for Intraepithelial malignancy","Squamous cell carcinoma"]
+    # Lặp qua các batch trong test_loader
+    with torch.no_grad():
+        for data, target in data_loader_test:
+            data = data.to(device='cpu' if args.model_ema_force_cpu else '')
+            output = model(data)  # Lấy đầu ra của mô hình
+            features.append(output.cpu().numpy())  # Lưu trữ đặc trưng
+            labels.append(target.numpy())  # Lưu trữ nhãn
+
+    # Chuyển đổi danh sách thành mảng numpy
+    features = np.concatenate(features)
+    labels = np.concatenate(labels)
+
+    # Sử dụng TSNE để giảm chiều dữ liệu
+    tsne = TSNE(n_components=2, random_state=42)
+    features_tsne = tsne.fit_transform(features)
+
+    # Vẽ biểu đồ t-SNE
+    plt.figure(figsize=(10, 8))
+    for i in range(len(config.MODEL.NUM_CLASSES)):
+        indices = labels == i
+        plt.scatter(features_tsne[indices, 0], features_tsne[indices, 1], label=classes[i])
+
+    plt.legend()
+    plt.title('t-SNE Visualization of VMamba Features')
+    # plt.show()
+    output_path = os.path.join(config.OUTPUT, 'tsne_visualization.png')
+    plt.savefig(output_path)
+
+
 
 
 def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema=None, model_time_warmup=50):
