@@ -46,7 +46,7 @@ except:
 
 def build_loader(config):
     config.defrost()
-    dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
+    dataset_train, nb_classes = build_dataset(is_train=True, config=config)
     config.freeze()
     print(f"rank {dist.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
@@ -93,7 +93,7 @@ def build_loader(config):
         mixup_fn = Mixup(
             mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
             prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
-            label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=config.MODEL.NUM_CLASSES)
+            label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=nb_classes)
 
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
@@ -194,11 +194,10 @@ def build_dataset(is_train, config):
             ann_file = prefix + "_map_val.txt"
         dataset = IN22KDATASET(config.DATA.DATA_PATH, ann_file, transform)
         nb_classes = 21841
-    elif config.DATA.DATASET == 'mendeley':
-        # prefix = 'train' if is_train else 'test'
-        # root = os.path.join(config.DATA.DATA_PATH, prefix)
-        dataset = datasets.ImageFolder(config.DATA.DATA_PATH, transform=transform)
-        nb_classes = 4
+    elif config.DATA.DATASET == 'cervical':
+        root = config.DATA.DATA_PATH
+        dataset = datasets.ImageFolder(root, transform=transform)
+        nb_classes = config.MODEL.NUM_CLASSES
     else:
         raise NotImplementedError("We only support ImageNet Now.")
 
