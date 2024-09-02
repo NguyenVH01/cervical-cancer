@@ -118,7 +118,7 @@ def parse_option():
 
 
 def main(config, args):
-    dataset_train, dataset_val, dataset_test, data_loader_train, data_loader_val, data_loader_test, mixup_fn = build_loader(
+    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(
         config, True, True)
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
@@ -255,7 +255,7 @@ def main(config, args):
            "Negative for Intraepithelial malignancy","Squamous cell carcinoma"]
     # Lặp qua các batch trong test_loader
     with torch.no_grad():
-        for data, target in data_loader_test:
+        for data, target in data_loader_val:
             data = data.to(device='cpu' if args.model_ema_force_cpu else '')
             output = model(data)  # Lấy đầu ra của mô hình
             features.append(output.cpu().numpy())  # Lưu trữ đặc trưng

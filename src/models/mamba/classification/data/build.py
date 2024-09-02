@@ -197,6 +197,7 @@ def build_dataset(is_train, config):
     elif config.DATA.DATASET == 'cervical':
         root = config.DATA.DATA_PATH
         dataset = datasets.ImageFolder(root, transform=transform)
+        
         nb_classes = config.MODEL.NUM_CLASSES
     else:
         raise NotImplementedError("We only support ImageNet Now.")

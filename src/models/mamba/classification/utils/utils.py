@@ -46,8 +46,7 @@ def load_checkpoint_ema(config, model, optimizer, lr_scheduler, loss_scaler, log
         config.freeze()
         if 'scaler' in checkpoint:
             loss_scaler.load_state_dict(checkpoint['scaler'])
-        logger.info(f"=> loaded successfully '{
-                    config.MODEL.RESUME}' (epoch {checkpoint['epoch']})")
+        logger.info(f"=> loaded successfully '{config.MODEL.RESUME}' (epoch {checkpoint['epoch']})")
         if 'max_accuracy' in checkpoint:
             max_accuracy = checkpoint['max_accuracy']
         if 'max_accuracy_ema' in checkpoint:
