@@ -1717,7 +1717,7 @@ def vmamba_base_s2l15(channel_first=True):
 def vmamba_tiny_s1l8(channel_first=True):
     return VSSM(
         depths=[2, 2, 8, 2], dims=96, drop_path_rate=0.2, 
-        patch_size=4, in_chans=3, num_classes=1000, 
+        patch_size=4, in_chans=3, num_classes=4, 
         ssm_d_state=1, ssm_ratio=1.0, ssm_dt_rank="auto", ssm_act_layer="silu",
         ssm_conv=3, ssm_conv_bias=False, ssm_drop_rate=0.0, 
         ssm_init="v0", forward_type="v05_noz", 

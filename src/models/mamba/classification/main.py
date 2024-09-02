@@ -119,7 +119,7 @@ def parse_option():
 
 def main(config, args):
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(
-        config, True, True)
+        config)
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
@@ -298,8 +298,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
     start = time.time()
     end = time.time()
-    all_targets = []
-    all_preds = []
 
     for idx, (samples, targets) in enumerate(data_loader):
         torch.cuda.reset_peak_memory_stats()
@@ -317,9 +315,9 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         loss = loss / config.TRAIN.ACCUMULATION_STEPS
 
         # Accumulate predictions and true labels for F1 score calculation
-        _, preds = torch.max(outputs, 1)
-        all_preds.extend(preds.cpu().numpy())
-        all_targets.extend(targets.cpu().numpy())
+        # _, preds = torch.max(outputs, 1)
+        # all_preds.extend(preds.cpu().numpy())
+        # all_targets.extend(targets.cpu().numpy())
 
 
         # this attribute is added by timm on one optimizer (adahessian)
@@ -366,8 +364,8 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 f'mem {memory_used:.0f}MB')
     epoch_time = time.time() - start
     # Calculate F1 score at the end of the epoch
-    f1 = f1_score(all_targets, all_preds, average='weighted')
-    print(f'Epoch {epoch} F1 Score: {f1:.4f}')
+    # f1 = f1_score(all_targets, all_preds, average='weighted')
+    # print(f'Epoch {epoch} F1 Score: {f1:.4f}')
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
 
