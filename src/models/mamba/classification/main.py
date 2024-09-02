@@ -141,14 +141,14 @@ def main(config, args):
     model_without_ddp = model
 
     model_ema = None
-    if args.model_ema:
-        # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
-        model_ema = ModelEma(
-            model,
-            decay=args.model_ema_decay,
-            device='cpu' if args.model_ema_force_cpu else '',
-            resume='')
-        print("Using EMA with decay = %.8f" % args.model_ema_decay)
+    # if args.model_ema:
+    #     # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
+    #     model_ema = ModelEma(
+    #         model,
+    #         decay=args.model_ema_decay,
+    #         device='cpu' if args.model_ema_force_cpu else '',
+    #         resume='')
+    #     print("Using EMA with decay = %.8f" % args.model_ema_decay)
 
     optimizer = build_optimizer(config, model, logger)
     model = torch.nn.parallel.DistributedDataParallel(
@@ -162,14 +162,16 @@ def main(config, args):
         lr_scheduler = build_scheduler(
             config, optimizer, len(data_loader_train))
 
-    if config.AUG.MIXUP > 0.:
-        # smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif config.MODEL.LABEL_SMOOTHING > 0.:
-        criterion = LabelSmoothingCrossEntropy(
-            smoothing=config.MODEL.LABEL_SMOOTHING)
-    else:
-        criterion = torch.nn.CrossEntropyLoss()
+    # if config.AUG.MIXUP > 0.:
+    #     # smoothing is handled with mixup label transform
+    #     criterion = SoftTargetCrossEntropy()
+    # elif config.MODEL.LABEL_SMOOTHING > 0.:
+    #     criterion = LabelSmoothingCrossEntropy(
+    #         smoothing=config.MODEL.LABEL_SMOOTHING)
+    # else:
+    #     criterion = torch.nn.CrossEntropyLoss()
+
+    criterion = torch.nn.CrossEntropyLoss()
 
     max_accuracy = 0.0
     max_accuracy_ema = 0.0
@@ -224,6 +226,7 @@ def main(config, args):
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
+        data_loader_train.sampler.set_epoch(epoch)
         train_one_epoch(config, model, criterion, data_loader_train,
                         optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
@@ -246,51 +249,17 @@ def main(config, args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
 
-    ######
-    # T-SNE
-    ######
-    features = []
-    labels = []
-    classes = ["High squamous intra-epithelial lesion","Low squamous intra-epithelial lesion",
-           "Negative for Intraepithelial malignancy","Squamous cell carcinoma"]
-    # Lặp qua các batch trong test_loader
-    with torch.no_grad():
-        for data, target in data_loader_val:
-            data = data.to(device='cpu' if args.model_ema_force_cpu else '')
-            output = model(data)  # Lấy đầu ra của mô hình
-            features.append(output.cpu().numpy())  # Lưu trữ đặc trưng
-            labels.append(target.numpy())  # Lưu trữ nhãn
-
-    # Chuyển đổi danh sách thành mảng numpy
-    features = np.concatenate(features)
-    labels = np.concatenate(labels)
-
-    # Sử dụng TSNE để giảm chiều dữ liệu
-    tsne = TSNE(n_components=2, random_state=42)
-    features_tsne = tsne.fit_transform(features)
-
-    # Vẽ biểu đồ t-SNE
-    plt.figure(figsize=(10, 8))
-    for i in range(len(config.MODEL.NUM_CLASSES)):
-        indices = labels == i
-        plt.scatter(features_tsne[indices, 0], features_tsne[indices, 1], label=classes[i])
-
-    plt.legend()
-    plt.title('t-SNE Visualization of VMamba Features')
-    # plt.show()
-    output_path = os.path.join(config.OUTPUT, 'tsne_visualization.png')
-    plt.savefig(output_path)
+    
 
 
 
 
-def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema=None, model_time_warmup=50):
+def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler, model_ema=None):
     model.train()
     optimizer.zero_grad()
 
     num_steps = len(data_loader)
     batch_time = AverageMeter()
-    model_time = AverageMeter()
     data_time = AverageMeter()
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
@@ -298,9 +267,10 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
     start = time.time()
     end = time.time()
-
     for idx, (samples, targets) in enumerate(data_loader):
-        torch.cuda.reset_peak_memory_stats()
+        # samples = samples.cuda(non_blocking=True)
+        # targets = targets.cuda(non_blocking=True)
+
         samples = samples.cuda(non_blocking=True)
         targets = targets.cuda(non_blocking=True)
 
@@ -310,26 +280,28 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         data_time.update(time.time() - end)
 
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            outputs = model(samples)
+          outputs = model(samples)
+          # Bước 1: Chuyển đổi logits thành xác suất
+          probabilities = torch.softmax(outputs, dim=1)
+
+          # Bước 2: Lấy nhãn dự đoán (là chỉ số của xác suất cao nhất)
+          predicted_labels = torch.argmax(probabilities, dim=1)
+
+          # In ra nhãn dự đoán cho batch với kích thước 32
+          print("Predicted labels for batch:", predicted_labels)
+
+          print("Target labels for batch:",targets)
         loss = criterion(outputs, targets)
         loss = loss / config.TRAIN.ACCUMULATION_STEPS
 
-        # Accumulate predictions and true labels for F1 score calculation
-        # _, preds = torch.max(outputs, 1)
-        # all_preds.extend(preds.cpu().numpy())
-        # all_targets.extend(targets.cpu().numpy())
-
-
         # this attribute is added by timm on one optimizer (adahessian)
-        is_second_order = hasattr(
-            optimizer, 'is_second_order') and optimizer.is_second_order
+        is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
         grad_norm = loss_scaler(loss, optimizer, clip_grad=config.TRAIN.CLIP_GRAD,
                                 parameters=model.parameters(), create_graph=is_second_order,
                                 update_grad=(idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0)
         if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
             optimizer.zero_grad()
-            lr_scheduler.step_update(
-                (epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
+            lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
             if model_ema is not None:
                 model_ema.update(model)
         loss_scale_value = loss_scaler.state_dict()["scale"]
@@ -343,31 +315,22 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if idx > model_time_warmup:
-            model_time.update(batch_time.val - data_time.val)
-
         if idx % config.PRINT_FREQ == 0:
             lr = optimizer.param_groups[0]['lr']
             wd = optimizer.param_groups[0]['weight_decay']
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             etas = batch_time.avg * (num_steps - idx)
-
             logger.info(
                 f'Train: [{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}]\t'
                 f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t wd {wd:.4f}\t'
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'data time {data_time.val:.4f} ({data_time.avg:.4f})\t'
-                f'model time {model_time.val:.4f} ({model_time.avg:.4f})\t'
                 f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                 f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
                 f'loss_scale {scaler_meter.val:.4f} ({scaler_meter.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
     epoch_time = time.time() - start
-    # Calculate F1 score at the end of the epoch
-    # f1 = f1_score(all_targets, all_preds, average='weighted')
-    # print(f'Epoch {epoch} F1 Score: {f1:.4f}')
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
-
 
 @torch.no_grad()
 def validate(config, data_loader, model):
@@ -379,17 +342,25 @@ def validate(config, data_loader, model):
     acc1_meter = AverageMeter()
     acc5_meter = AverageMeter()
 
+    # features = []
+    # labels = []
+    # classes = ["High squamous intra-epithelial lesion","Low squamous intra-epithelial lesion",
+    #        "Negative for Intraepithelial malignancy","Squamous cell carcinoma"]
+    # Lặp qua các batch trong test_loader
+
     end = time.time()
     all_targets = []
     all_preds = []
     for idx, (images, target) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
-
+        
         # compute output
         with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
             output = model(images)
 
+        # features.append(output.cpu().numpy())  # Lưu trữ đặc trưng
+        # labels.append(target.cpu().numpy())  # Lưu trữ nhãn
         # measure accuracy and record loss
         loss = criterion(output, target)
         acc1, acc5 = accuracy(output, target, topk=(
@@ -421,7 +392,27 @@ def validate(config, data_loader, model):
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
-            
+    
+    
+    # Chuyển đổi danh sách thành mảng numpy
+    # features = np.concatenate(features)
+    # labels = np.concatenate(labels)
+
+    # # Sử dụng TSNE để giảm chiều dữ liệu
+    # tsne = TSNE(n_components=2, random_state=42)
+    # features_tsne = tsne.fit_transform(features)
+
+    # # Vẽ biểu đồ t-SNE
+    # plt.figure(figsize=(10, 8))
+    # for i in range(len(config.MODEL.NUM_CLASSES)):
+    #     indices = labels == i
+    #     plt.scatter(features_tsne[indices, 0], features_tsne[indices, 1], label=classes[i])
+
+    # plt.legend()
+    # plt.title('t-SNE Visualization of VMamba Features')
+    # # plt.show()
+    # output_path = os.path.join(config.OUTPUT, 'tsne_visualization.png')
+    # plt.savefig(output_path)        
     # Calculate F1 score at the end of the epoch
     f1 = f1_score(all_targets, all_preds, average='weighted')
     print(f'F1 Score - Validate dataset: {f1:.4f}')

@@ -51,7 +51,7 @@ def build_loader(config):
     print(f"rank {dist.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
     print(f"rank {dist.get_rank()} successfully build val dataset")
-
+    print("dataset train: ", len(dataset_train))
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
     if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
@@ -89,11 +89,11 @@ def build_loader(config):
     # setup mixup / cutmix
     mixup_fn = None
     mixup_active = config.AUG.MIXUP > 0 or config.AUG.CUTMIX > 0. or config.AUG.CUTMIX_MINMAX is not None
-    if mixup_active:
-        mixup_fn = Mixup(
-            mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
-            prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
-            label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=nb_classes)
+    # if mixup_active:
+    #     mixup_fn = Mixup(
+    #         mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
+    #         prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
+    #         label_smoothing=config.MODEL.LABEL_SMOOTHING, num_classes=nb_classes)
 
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 

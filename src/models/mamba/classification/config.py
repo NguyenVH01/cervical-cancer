@@ -101,7 +101,7 @@ _C.MODEL.VSSM.GMLP = False
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
-_C.TRAIN.EPOCHS = 300
+_C.TRAIN.EPOCHS = 20
 _C.TRAIN.WARMUP_EPOCHS = 20
 _C.TRAIN.WEIGHT_DECAY = 0.05
 _C.TRAIN.BASE_LR = 5e-4
@@ -192,7 +192,7 @@ _C.TEST.SHUFFLE = False
 _C.ENABLE_AMP = False
 
 # Enable Pytorch automatic mixed precision (amp).
-_C.AMP_ENABLE = True
+_C.AMP_ENABLE = False
 # [Deprecated] Mixed precision opt level of apex, if O0, no apex amp is used ('O0', 'O1', 'O2')
 _C.AMP_OPT_LEVEL = ''
 # Path to output folder, overwritten by command line argument
