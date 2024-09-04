@@ -1,7 +1,0 @@
-# ninja log v5
-0	28320	1725260497481882186	/content/cervical-cancer/src/models/mamba/kernels/selective_scan/build/temp.linux-x86_64-cpython-310/csrc/selective_scan/cusoflex/selective_scan_core_fwd.o	e1c40091e5119c09
-1	40271	1725260509423057688	/content/cervical-cancer/src/models/mamba/kernels/selective_scan/build/temp.linux-x86_64-cpython-310/csrc/selective_scan/cusoflex/selective_scan_oflex.o	7dd3ce4a55bdb623
-0	71611	1725260540757142161	/content/cervical-cancer/src/models/mamba/kernels/selective_scan/build/temp.linux-x86_64-cpython-310/csrc/selective_scan/cusoflex/selective_scan_core_bwd.o	1aa3ebd9cbc77d12
-5	25591	1725263896536290843	/content/cervical-cancer/src/models/mamba/kernels/selective_scan/build/temp.linux-x86_64-cpython-310/csrc/selective_scan/cusoflex/selective_scan_core_fwd.o	e1c40091e5119c09
-5	39728	1725263910672608314	/content/cervical-cancer/src/models/mamba/kernels/selective_scan/build/temp.linux-x86_64-cpython-310/csrc/selective_scan/cusoflex/selective_scan_oflex.o	7dd3ce4a55bdb623
-4	68856	1725263939786322312	/content/cervical-cancer/src/models/mamba/kernels/selective_scan/build/temp.linux-x86_64-cpython-310/csrc/selective_scan/cusoflex/selective_scan_core_bwd.o	1aa3ebd9cbc77d12
