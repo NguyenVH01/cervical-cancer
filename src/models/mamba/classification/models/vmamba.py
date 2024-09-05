@@ -5,7 +5,6 @@ import copy
 from functools import partial
 from typing import Optional, Callable, Any
 from collections import OrderedDict
-from reverse_layer import ReverseLayerF
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -20,8 +19,10 @@ DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
 # torch.backends.cudnn.deterministic = True
 
 try:
+    from .reverse_layer import ReverseLayerF
     from .csm_triton import cross_scan_fn, cross_merge_fn
 except:
+    from reverse_layer import ReverseLayerF
     from csm_triton import cross_scan_fn, cross_merge_fn
 
 try:
@@ -1912,5 +1913,3 @@ if __name__ == "__main__":
     print(bench(model))
 
     breakpoint()
-
-
