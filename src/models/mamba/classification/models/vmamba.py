@@ -1584,6 +1584,7 @@ class DANN(nn.Module):
         self.feature_extrator = vmamba_tiny_s1l8()
         
         if pre_train:
+            print('===============> Load pre-train Mamba <===============')
             pretrained_dict = torch.load(self.opt.pre_train_path)
             model_dict = self.feature_extrator.state_dict()
             pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
@@ -1625,18 +1626,19 @@ class DANN(nn.Module):
         self.domain_classifier.add_module('d_fc3', nn.Linear(256, 1))
         self.domain_classifier.add_module('d_sm', nn.Sigmoid())
 
-    def forward(self, input, alpha=-1, sln='dann'):
+    def forward(self, input, alpha=-1):
+        print('===============> Forward DANN <===============')
         input = input.expand(input.data.shape[0], 3, 224, 224)
         feature = self.feature_extrator(input)
         feature = feature.view(feature.size(0), -1)
-        if sln == 'dann':
-            classifier = self.class_classifier(feature)
-            reverse_feature = ReverseLayerF.apply(feature, alpha)
-            domain_classifier = self.domain_classifier(reverse_feature)
-            return classifier, domain_classifier
-        else:
-            classifier = self.class_classifier(feature)
-            return classifier
+        # if sln == 'dann':
+        classifier = self.class_classifier(feature)
+        reverse_feature = ReverseLayerF.apply(feature, alpha)
+        domain_classifier = self.domain_classifier(reverse_feature)
+        return classifier, domain_classifier
+        # else:
+        #     classifier = self.class_classifier(feature)
+        #     return classifier
 # compatible with openmmlab
 class Backbone_VSSM(VSSM):
     def __init__(self, out_indices=(0, 1, 2, 3), pretrained=None, norm_layer="ln", **kwargs):
