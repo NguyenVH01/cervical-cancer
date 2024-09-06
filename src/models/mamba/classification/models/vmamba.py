@@ -1248,6 +1248,7 @@ class VSSM(nn.Module):
         in_chans=3, 
         num_classes=1000, 
         depths=[2, 2, 5, 2], 
+        domain=False,
         dims=[96, 192, 384, 768], 
         # =========================
         ssm_d_state=16,
@@ -1281,6 +1282,7 @@ class VSSM(nn.Module):
         super().__init__()
         self.channel_first = (norm_layer.lower() in ["bn", "ln2d"])
         self.num_classes = num_classes
+        self.domain = domain
         self.num_layers = len(depths)
         if isinstance(dims, int):
             dims = [int(dims * 2 ** i_layer) for i_layer in range(self.num_layers)]
@@ -1502,7 +1504,8 @@ class VSSM(nn.Module):
             x = x + pos_embed
         for layer in self.layers:
             x = layer(x)
-        x = self.classifier(x)
+        if not self.domain:
+            x = self.classifier(x)
         return x
 
     def flops(self, shape=(3, 224, 224), verbose=True):
